@@ -1,0 +1,1342 @@
+<!doctype html><html data-theme="navy"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Smart Network Flow and Resource Allocation System</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: a project console. Header and tabs on top; the Network Lab pairs a graph canvas with solver results, other tabs are card grids. */
+:root {
+  --bg: #f1f4f8;
+  --surface: #ffffff;
+  --surface-2: #e8edf3;
+  --fg: #132033;
+  --muted: #566679;
+  --line: #c6d0db;
+  --accent: #0a63c9;
+  --on-accent: #ffffff;
+  --flow: #2b7de0;
+  --sat: #c46f14;
+  --cut: #c42f4b;
+  --ok: #17794f;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d141c; --surface: #151f2b; --surface-2: #1e2b3a; --fg: #e4ebf3; --muted: #93a4b7;
+    --line: #34465c; --accent: #5ba6ff; --on-accent: #07121d; --flow: #4a9bff; --sat: #f0a14a;
+    --cut: #ff7a92; --ok: #4cc38a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d141c; --surface: #151f2b; --surface-2: #1e2b3a; --fg: #e4ebf3; --muted: #93a4b7;
+  --line: #34465c; --accent: #5ba6ff; --on-accent: #07121d; --flow: #4a9bff; --sat: #f0a14a;
+  --cut: #ff7a92; --ok: #4cc38a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body);
+  font-size: 14px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 22px 44px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.4rem, 3.4vw, 2rem); line-height: 1.15; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h2 { font-family: var(--font-display); font-weight: 500; font-size: 1.02rem; margin: 0; }
+h3 { font-family: var(--font-display); font-weight: 500; font-size: .95rem; margin: 0 0 6px; }
+p { margin: 0; }
+.eyebrow { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin-bottom: 6px; }
+.lede { margin-top: 8px; color: var(--muted); max-width: 72ch; }
+.hero { display: flex; flex-wrap: wrap; gap: 14px 24px; justify-content: space-between; align-items: flex-end; }
+.hero > div:first-child { min-width: 0; flex: 1 1 420px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 99px; font-size: 12px; background: var(--surface); color: var(--muted); }
+.chip.ok { color: var(--ok); border-color: var(--ok); }
+.chip.bad { color: var(--cut); border-color: var(--cut); }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tab { font: inherit; font-weight: 500; color: var(--muted); background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 10px 14px; cursor: pointer; white-space: nowrap; margin-bottom: -1px; }
+.tab:hover { color: var(--fg); }
+.tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.panel-view { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.bar { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: flex-end; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field > span, .label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: transparent; color: var(--fg); font: inherit; font-weight: 500; padding: 8px 14px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+input[type=number], input[type=text], select, textarea {
+  font: inherit; font-family: var(--font-mono); font-size: 13px; color: var(--fg); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px;
+}
+input[type=number] { width: 92px; }
+input[type=text] { width: 150px; font-family: var(--font-body); }
+select { font-family: var(--font-body); min-width: 150px; }
+textarea { width: 100%; min-height: 150px; resize: vertical; line-height: 1.45; }
+.check { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; padding-bottom: 8px; }
+button.btn { font: inherit; font-weight: 500; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; cursor: pointer; }
+button.btn:hover { border-color: var(--accent); }
+button.btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 18px; align-items: start; }
+.canvas, .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+.canvas { padding: 10px; }
+.canvas svg.g { display: block; width: 100%; height: auto; touch-action: none; user-select: none; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 8px 6px 2px; color: var(--muted); font-size: 12px; }
+.legend i { display: inline-block; width: 22px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+.side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; min-width: 0; }
+.tile b { display: block; font-family: var(--font-mono); font-weight: 500; font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+.tile small { color: var(--muted); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; display: block; }
+.tile small.u { text-transform: none; letter-spacing: 0; }
+.insight { padding: 12px 14px; background: var(--surface-2); border-radius: 8px; }
+.checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+.checks li { display: flex; gap: 8px; align-items: baseline; }
+.checks .y { color: var(--ok); font-weight: 600; }
+.checks .n { color: var(--cut); font-weight: 600; }
+.scrub { display: flex; gap: 10px; align-items: center; margin: 8px 0; }
+.scrub input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.scrub span { font-family: var(--font-mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+ol.log { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+ol.log button { width: 100%; text-align: left; font: inherit; font-size: 12.5px; background: transparent; color: var(--fg); border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; cursor: pointer; display: grid; gap: 2px; }
+ol.log button:hover { background: var(--surface-2); }
+ol.log button[aria-current="true"] { border-color: var(--accent); background: var(--surface-2); }
+.path { font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
+.meta { color: var(--muted); font-size: 12px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 460px; }
+th { text-align: left; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 5px 8px; border-bottom: 1px solid var(--surface-2); vertical-align: middle; }
+td.num, th.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+tr.total td { font-weight: 600; border-top: 1px solid var(--line); }
+.use { width: 100px; height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.use div { height: 100%; background: var(--flow); width: 0; }
+.use div.full { background: var(--sat); }
+.addrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-top: 10px; }
+.bars { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.brow { display: grid; grid-template-columns: 92px minmax(0, 1fr) 70px; gap: 10px; align-items: center; font-size: 12.5px; }
+.bn { font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
+.btrack { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
+.bfill { display: block; height: 100%; border-radius: 5px; background: var(--flow); }
+.bfill.bad { background: var(--cut); }
+.bfill.ok { background: var(--ok); }
+.bv { font-family: var(--font-mono); font-size: 12px; text-align: right; }
+.note { color: var(--muted); font-size: 12.5px; margin-top: 8px; }
+.delta-up { color: var(--ok); }
+.delta-down { color: var(--cut); }
+pre.code, pre.eq { margin: 8px 0 0; padding: 12px; background: var(--surface-2); border-radius: 8px; overflow-x: auto; font-family: var(--font-mono); font-size: 12px; line-height: 1.55; white-space: pre; }
+.prose { max-width: 78ch; }
+.prose p + p, .prose ul { margin-top: 8px; }
+.prose ul { padding-left: 18px; }
+.scard { display: flex; flex-direction: column; gap: 8px; }
+.scard.cur { border-color: var(--accent); }
+.scard .meta { flex: 1; }
+.chart { width: 100%; height: auto; display: block; }
+.ax { stroke: var(--line); stroke-width: 1; }
+.gl { stroke: var(--surface-2); stroke-width: 1; }
+.tk { font-family: var(--font-mono); font-size: 10.5px; fill: var(--muted); }
+.cv { fill: none; stroke: var(--flow); stroke-width: 2.4; stroke-linejoin: round; }
+.cd { fill: var(--surface); stroke: var(--flow); stroke-width: 2; }
+.mk { stroke: var(--sat); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.mkt { font-family: var(--font-mono); font-size: 10.5px; fill: var(--sat); }
+#toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 9px 16px; border-radius: 8px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s; max-width: calc(100% - 32px); z-index: 20; }
+#toast.on { opacity: 1; }
+/* graph */
+.e-pill { fill: var(--surface); stroke: var(--line); stroke-width: 1; }
+.e-text { font-family: var(--font-mono); font-size: 11px; fill: var(--fg); text-anchor: middle; dominant-baseline: central; }
+.e-text.idle { fill: var(--muted); }
+.n-c { fill: var(--surface); stroke: var(--muted); stroke-width: 2; cursor: grab; }
+.n-c.term { fill: var(--accent); stroke: var(--accent); }
+.n-t { font-family: var(--font-display); font-weight: 600; font-size: 12.5px; fill: var(--fg); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.n-t.term { fill: var(--on-accent); }
+.n-sub { font-size: 10.5px; fill: var(--muted); text-anchor: middle; pointer-events: none; }
+.onpath { stroke: var(--surface); stroke-width: 2; stroke-dasharray: 3 6; fill: none; animation: dash 0.7s linear infinite; }
+@keyframes dash { to { stroke-dashoffset: -9; } }
+@media (prefers-reduced-motion: reduce) { .onpath { animation: none; } #toast { transition: none; } }
+@media (max-width: 980px) { .stage, .grid2 { grid-template-columns: minmax(0, 1fr); } }
+</style>
+<style id="pro-theme">
+:root[data-theme="navy"]{--bg:#f2f4f8;--surface:#fff;--surface-2:#eef1f5;--line:#d8dee7;--fg:#1b2635;--muted:#5d6b7c;--accent:#1f4e8c;--flow:#3b7bbf;--sat:#b0701c;--cut:#b4374d;--ok:#2f7d5b;--on-accent:#fff;--h1:#12294a;--h2:#1f4e8c;color-scheme:light}
+:root[data-theme="slate"]{--bg:#f4f4f5;--surface:#fff;--surface-2:#efeff1;--line:#dcdce0;--fg:#202127;--muted:#62646e;--accent:#3f4a5c;--flow:#5b6b84;--sat:#a8702a;--cut:#a8374a;--ok:#35765a;--on-accent:#fff;--h1:#23272f;--h2:#3f4a5c;color-scheme:light}
+:root[data-theme="teal"]{--bg:#f1f5f5;--surface:#fff;--surface-2:#ebf1f1;--line:#d5e0e0;--fg:#17292b;--muted:#587072;--accent:#0f5f66;--flow:#2f8a93;--sat:#b0701c;--cut:#b4374d;--ok:#2f7d5b;--on-accent:#fff;--h1:#0b3b40;--h2:#0f5f66;color-scheme:light}
+:root[data-theme="dark"]{--bg:#0f1520;--surface:#172030;--surface-2:#1e2a3d;--line:#2e3d55;--fg:#e5eaf2;--muted:#95a3b8;--accent:#6ea8e8;--flow:#5b9bd8;--sat:#d9993f;--cut:#e0728a;--ok:#4cb68a;--on-accent:#0f1520;--h1:#0b1220;--h2:#1b3556;color-scheme:dark}
+body{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 9%,var(--bg)) 0,var(--bg) 340px) fixed,var(--bg)}
+.hero{background:linear-gradient(135deg,var(--h1),var(--h2));color:#fff;padding:22px 26px;border-radius:10px;box-shadow:0 6px 18px -10px rgba(10,20,40,.5)}
+.hero .eyebrow,.hero .lede{color:rgba(255,255,255,.8)}.hero h1{color:#fff}
+.hero .chip{background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.3)}
+.hero .chip.ok{border-color:#8fd0b0;color:#c9ecdb}.hero .chip.bad{border-color:#f0a6b4;color:#fbd9e0}
+.tabs{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:0 8px}
+.tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.canvas,.card{border-radius:10px;box-shadow:0 1px 2px rgba(20,30,50,.05),0 4px 14px -10px rgba(20,30,50,.25)}
+.tile{border-radius:8px;border-top:3px solid var(--accent)}
+.insight{border-left:3px solid var(--accent)}
+h2{font-weight:600;padding-bottom:6px;margin-bottom:6px;border-bottom:1px solid var(--line)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--accent);border-radius:8px;padding:12px 14px}
+.kpi small{display:block;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.kpi b{font:600 1.55rem var(--font-mono);color:var(--fg)}.kpi span{display:block;font-size:12px;color:var(--muted)}
+.kpi.warn{border-top-color:var(--sat)}.kpi.bad{border-top-color:var(--cut)}.kpi.good{border-top-color:var(--ok)}
+.heat{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:8px}
+.hc{border-radius:6px;padding:7px 10px;color:#fff;font:12px var(--font-mono)}.hc b{display:block;font-size:13px}
+.themes{display:flex;gap:6px}.themes button{width:18px;height:18px;border-radius:4px;border:1px solid rgba(255,255,255,.7);cursor:pointer;padding:0}
+.sumtxt{line-height:1.6}.sumtxt li{margin-bottom:4px}
+#tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}#tools .sp{flex:1}
+kbd{font:11px var(--font-mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--surface-2)}
+@media print{body{background:#fff}.tabs,.bar,.themes,#tools,.addrow,.scrub{display:none!important}.hero{color:#000;background:#fff;box-shadow:none}.hero h1,.hero .lede,.hero .eyebrow{color:#000}}
+</style>
+
+
+
+<div class="wrap">
+  <header class="hero">
+    <div>
+      <p class="eyebrow">Postgraduate project · Network optimisation · Live analytics</p>
+      <h1>Smart Network Flow and Resource Allocation System</h1>
+      <p class="lede">Model supply, transport capacity and demand as a flow network. Solve for maximum throughput or minimum cost, then test how the plan holds up when capacities change or links fail.</p>
+    </div>
+    <div class="chips"><span class="themes" aria-label="Theme"><button style="background:#1f4e8c" data-th="navy" title="Navy"></button><button style="background:#3f4a5c" data-th="slate" title="Slate"></button><button style="background:#0f5f66" data-th="teal" title="Teal"></button><button style="background:#0f1520" data-th="dark" title="Dark"></button></span><span class="chip" id="scenChip"></span><span class="chip" id="verChip"></span></div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab" role="tab" data-tab="lab" aria-selected="true">Network lab</button>
+    <button class="tab" role="tab" data-tab="analysis" aria-selected="false">Analysis</button>
+    <button class="tab" role="tab" data-tab="scenarios" aria-selected="false">Scenarios</button>
+    <button class="tab" role="tab" data-tab="theory" aria-selected="false">Method</button>
+    <button class="tab" role="tab" data-tab="export" aria-selected="false">Export</button>
+  </nav>
+
+  <!-- NETWORK LAB -->
+  <section class="panel-view" id="panel-lab">
+    <div class="bar">
+      <div class="field"><span>Objective</span>
+        <div class="seg" role="group" aria-label="Objective">
+          <button type="button" data-mode="maxflow" aria-pressed="true">Max flow</button>
+          <button type="button" data-mode="mincost" aria-pressed="false">Min-cost flow</button>
+        </div>
+      </div>
+      <label class="field" id="algField"><span>Algorithm</span>
+        <select id="alg">
+          <option value="dinic">Dinic (level graph)</option>
+          <option value="ek">Edmonds–Karp (BFS)</option>
+          <option value="ff">Ford–Fulkerson (DFS)</option>
+        </select>
+      </label>
+      <label class="field" id="targetField" hidden><span id="targetLbl">Required flow</span><input type="number" id="target" min="0" step="1" value="60"></label>
+      <label class="field"><span>Scenario</span><select id="scenSel"></select></label>
+      <label class="check"><input type="checkbox" id="compact"> Compact labels</label>
+      <button type="button" class="btn" id="tidy">Tidy layout</button>
+      <button type="button" class="btn" id="pin">Pin as baseline</button>
+    </div>
+
+        <div id="tools"><button type="button" class="btn" id="undo">Undo</button><button type="button" class="btn" id="redo">Redo</button><button type="button" class="btn" id="resetScen">Reset scenario</button><span class="sp"></span><button type="button" class="btn" id="dlPng">Graph PNG</button><button type="button" class="btn" id="dlCsv">Flows CSV</button><button type="button" class="btn primary" id="prt">Print report</button></div>
+    <div class="kpis" id="kpis"></div>
+    <div class="grid2">
+      <div class="card"><h2>Executive summary</h2><ul class="sumtxt" id="sum" style="padding-left:18px;margin:8px 0"></ul><div class="addrow"><button type="button" class="btn" id="cpSum">Copy summary</button><span class="meta">Shortcuts: <kbd>1</kbd>–<kbd>5</kbd> tabs · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</span></div></div>
+      <div class="card"><h2>Cost drivers</h2><div class="bars" id="drv"></div><h2 style="margin-top:14px">Failure risk by link</h2><div class="bars" id="risk"></div></div>
+    </div>
+    <div class="card"><h2>Link utilization heatmap</h2><p class="note">Colour shows how full each link is, from spare capacity (green) to saturated (red).</p><div class="heat" id="heat"></div></div>
+    <div class="stage">
+      <div class="canvas">
+        <svg class="g" id="svg" viewBox="0 0 900 520" role="img" aria-label="Network graph with flow on each edge"></svg>
+        <div class="legend">
+          <span><i style="background:var(--flow)"></i>carrying flow</span>
+          <span><i style="background:var(--sat)"></i>saturated</span>
+          <span><i style="background:var(--cut);opacity:.35"></i>min-cut edge</span>
+          <span id="legendLbl">label: flow / capacity · unit cost</span>
+          <span>Drag nodes to rearrange</span>
+        </div>
+      </div>
+      <aside class="side">
+        <div class="tiles" id="tiles"></div>
+        <p class="insight" id="insight"></p>
+        <div class="card">
+          <h3>Solution checks</h3>
+          <ul class="checks" id="checks"></ul>
+        </div>
+        <div class="card">
+          <h3 id="stepsTitle">Augmenting paths</h3>
+          <div class="scrub">
+            <button type="button" class="btn" id="play">Play</button>
+            <input type="range" id="scrub" min="0" max="0" value="0" aria-label="Step through augmenting paths">
+            <span id="stepNo"></span>
+          </div>
+          <ol class="log" id="log"></ol>
+        </div>
+      </aside>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h2>Edges</h2>
+        <input type="text" id="edgeFilter" placeholder="Filter edges, e.g. H1" style="width:100%;margin-bottom:8px" aria-label="Filter edges"><div class="tablewrap">
+          <table>
+            <thead><tr><th>Edge</th><th>Capacity</th><th>Unit cost</th><th class="num">Flow</th><th>Use</th><th></th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div class="addrow">
+          <label class="field"><span>From</span><select id="from"></select></label>
+          <label class="field"><span>To</span><select id="to"></select></label>
+          <label class="field"><span>Capacity</span><input type="number" id="newCap" min="0" step="1" value="10"></label>
+          <label class="field"><span>Unit cost</span><input type="number" id="newCost" min="0" step="1" value="3"></label>
+          <button type="button" class="btn primary" id="addEdge">Add edge</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Nodes</h2>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Id</th><th>Label</th><th>Name</th><th class="num">Inflow</th><th></th></tr></thead>
+            <tbody id="nrows"></tbody>
+          </table>
+        </div>
+        <div class="addrow"><button type="button" class="btn primary" id="addNode">Add relay node</button></div>
+        <p class="note">S and T are the super source and super sink. Supply limits are the capacities of edges leaving S, and demand limits are the capacities of edges entering T.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ANALYSIS -->
+  <section class="panel-view" id="panel-analysis" hidden>
+    <div class="bar">
+      <label class="field"><span>Capacity upgrade size</span><input type="number" id="inc" min="1" step="1" value="5"></label>
+      <p class="note" style="margin:0 0 8px">Analysis uses the current network in the Network lab. Sensitivity and failure tests always measure maximum flow.</p>
+    </div>
+    <div class="grid2">
+      <div class="card"><h2>Algorithm benchmark</h2><div id="bench"></div></div>
+      <div class="card"><h2>Cost against flow</h2><div id="curve"></div></div>
+      <div class="card"><h2>Where to add capacity</h2><div id="sens"></div></div>
+      <div class="card"><h2>Link failure impact</h2><div id="fail"></div></div>
+      <div class="card"><h2>Flow paths in the current solution</h2><div id="dec"></div></div>
+      <div class="card"><h2>Node throughput</h2><div id="thru"></div></div>
+    </div>
+  </section>
+
+  <!-- SCENARIOS -->
+  <section class="panel-view" id="panel-scenarios" hidden>
+    <div class="grid3" id="scards"></div>
+    <div class="grid2">
+      <div class="card">
+        <h2>Random network</h2>
+        <p class="note">Generates a three-tier network with seeded random capacities and costs. The same seed gives the same network.</p>
+        <div class="addrow">
+          <label class="field"><span>Seed</span><input type="number" id="seed" min="1" step="1" value="7"></label>
+          <button type="button" class="btn primary" id="gen">Generate</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Baseline comparison</h2>
+        <div id="cmp"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- METHOD -->
+  <section class="panel-view" id="panel-theory" hidden>
+    <div class="grid2">
+      <div class="card prose">
+        <h2>Problem statement</h2>
+        <p>A directed graph G = (V, E) has a source S, a sink T, a capacity u(e) and a unit cost c(e) on every edge. A flow f assigns a non-negative amount to each edge so that it never exceeds capacity and, at every node except S and T, inflow equals outflow.</p>
+        <pre class="eq">Max flow
+  maximise   v
+  subject to Σ f(S,j) = v          (value leaving the source)
+             Σ f(i,k) − Σ f(k,j) = 0   for every k ≠ S, T
+             0 ≤ f(e) ≤ u(e)
+
+Min-cost flow for a required value d
+  minimise   Σ c(e) · f(e)
+  subject to the same constraints, with v = d</pre>
+        <p>In resource allocation terms, edges out of S carry supply limits, middle edges are transport or processing capacity, and edges into T carry demand limits.</p>
+      </div>
+      <div class="card prose">
+        <h2>Algorithms used</h2>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Method</th><th>Idea</th><th>Time bound</th></tr></thead>
+          <tbody>
+            <tr><td>Edmonds–Karp</td><td>Augment along the path with the fewest edges, found by BFS.</td><td class="num">O(V·E²)</td></tr>
+            <tr><td>Dinic</td><td>Build a BFS level graph, then push blocking flow along level-increasing edges.</td><td class="num">O(V²·E)</td></tr>
+            <tr><td>Ford–Fulkerson (DFS)</td><td>Augment along any path found by depth-first search.</td><td class="num">O(E·f*)</td></tr>
+            <tr><td>Successive shortest paths</td><td>Augment along the cheapest residual path, found by SPFA (queue-based Bellman–Ford).</td><td class="num">O(f*·V·E)</td></tr>
+          </tbody>
+        </table></div>
+        <p class="note">f* is the value of the maximum flow. The Ford–Fulkerson bound holds for integer capacities.</p>
+      </div>
+      <div class="card prose">
+        <h2>Results the app checks</h2>
+        <ul>
+          <li><b>Max-flow min-cut.</b> The value of a maximum flow equals the capacity of a minimum cut. The saturated edges crossing that cut are the system bottleneck.</li>
+          <li><b>Optimality of min-cost flow.</b> A flow of a given value has minimum cost exactly when the residual graph has no negative-cost cycle. The app runs this test on every min-cost solution.</li>
+          <li><b>Integrality.</b> With integer capacities, a maximum flow and a min-cost flow with integer value exist with integer flow on every edge.</li>
+        </ul>
+      </div>
+      <div class="card prose">
+        <h2>How to read the Analysis tab</h2>
+        <ul>
+          <li><b>Where to add capacity.</b> For each edge, the gain in maximum flow when its capacity grows by the chosen amount. Only edges on the min cut give a gain.</li>
+          <li><b>Link failure impact.</b> The loss in maximum flow when one edge is removed. A large loss marks a single point of failure.</li>
+          <li><b>Cost against flow.</b> Total minimum cost as the delivered flow grows. The slope is the marginal cost of one more unit, and it never decreases.</li>
+          <li><b>Benchmark.</b> Each algorithm solves the same network. The three max-flow methods must agree on the flow value.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- EXPORT -->
+  <section class="panel-view" id="panel-export" hidden>
+    <div class="grid2">
+      <div class="card">
+        <h2>Network as JSON</h2>
+        <textarea id="jsonOut" readonly aria-label="Network JSON"></textarea>
+        <div class="addrow"><button type="button" class="btn" data-copy="jsonOut">Copy JSON</button></div>
+      </div>
+      <div class="card">
+        <h2>Load a network from JSON</h2>
+        <textarea id="jsonIn" placeholder='{"nodes":[{"id":"S","label":"S","sub":"Source","x":56,"y":260}, ...],"edges":[{"u":"S","v":"A","cap":40,"cost":0}, ...]}' aria-label="Paste network JSON"></textarea>
+        <div class="addrow"><button type="button" class="btn primary" id="loadJson">Load network</button></div>
+        <p class="note">Nodes S and T are required. Every edge must refer to existing node ids.</p>
+      </div>
+      <div class="card">
+        <h2>Python (NetworkX)</h2>
+        <p class="note">Rebuilds this network and solves it with NetworkX, so you can check the results against your own script.</p>
+        <pre class="code" id="pyOut"></pre>
+        <div class="addrow"><button type="button" class="btn" data-copy="pyOut">Copy Python</button></div>
+      </div>
+      <div class="card">
+        <h2>Summary report</h2>
+        <pre class="code" id="repOut"></pre>
+        <div class="addrow"><button type="button" class="btn" data-copy="repOut">Copy report</button></div>
+      </div>
+    </div>
+  </section>
+</div>
+<div id="toast" role="status"></div>
+
+<script id="core">
+var FlowCore = (function () {
+  var EPS = 1e-9;
+
+  function build(nodes, edges) {
+    var ix = {}, N = nodes.length, i;
+    for (i = 0; i < N; i++) ix[nodes[i].id] = i;
+    var E = [], adj = [];
+    for (i = 0; i < N; i++) adj.push([]);
+    edges.forEach(function (e) {
+      var u = ix[e.u], v = ix[e.v];
+      adj[u].push(E.length); E.push({ u: u, v: v, cap: e.cap, cost: e.cost });
+      adj[v].push(E.length); E.push({ u: v, v: u, cap: 0, cost: -e.cost });
+    });
+    return { E: E, adj: adj, s: ix.S, t: ix.T, N: N, ix: ix };
+  }
+
+  function pathFrom(g, prev) {
+    var p = [], x = g.t, n = 0;
+    while (x !== g.s && n++ < g.N + 2) { var id = prev[x]; p.push(id); x = g.E[id].u; }
+    return p.reverse();
+  }
+
+  function makeFinder(alg, g, onPhase) {
+    var E = g.E, adj = g.adj, s = g.s, t = g.t, N = g.N;
+    function fill(v) { var a = new Array(N); for (var i = 0; i < N; i++) a[i] = v; return a; }
+
+    if (alg === 'ek') {
+      return function () {
+        var prev = fill(-1), seen = fill(false), q = [s], h = 0;
+        seen[s] = true;
+        while (h < q.length) {
+          var u = q[h++];
+          for (var i = 0; i < adj[u].length; i++) {
+            var id = adj[u][i], v = E[id].v;
+            if (E[id].cap > EPS && !seen[v]) { seen[v] = true; prev[v] = id; q.push(v); }
+          }
+        }
+        return seen[t] ? pathFrom(g, prev) : null;
+      };
+    }
+
+    if (alg === 'ff') {
+      return function () {
+        var seen = fill(false), it = fill(0), stack = [], u = s;
+        seen[s] = true;
+        while (true) {
+          if (u === t) return stack;
+          var adv = false;
+          while (it[u] < adj[u].length) {
+            var id = adj[u][it[u]++], v = E[id].v;
+            if (E[id].cap > EPS && !seen[v]) { seen[v] = true; stack.push(id); u = v; adv = true; break; }
+          }
+          if (!adv) {
+            if (!stack.length) return null;
+            u = E[stack.pop()].u;
+          }
+        }
+      };
+    }
+
+    if (alg === 'mcf') {
+      return function () {
+        var dist = fill(Infinity), prev = fill(-1), inq = fill(false), q = [s], h = 0;
+        dist[s] = 0; inq[s] = true;
+        while (h < q.length) {
+          var u = q[h++]; inq[u] = false;
+          for (var i = 0; i < adj[u].length; i++) {
+            var id = adj[u][i], v = E[id].v;
+            if (E[id].cap > EPS && dist[u] + E[id].cost < dist[v] - EPS) {
+              dist[v] = dist[u] + E[id].cost; prev[v] = id;
+              if (!inq[v]) { inq[v] = true; q.push(v); }
+            }
+          }
+          if (h > 4096 && h * 2 > q.length) { q = q.slice(h); h = 0; }
+        }
+        return dist[t] < Infinity ? pathFrom(g, prev) : null;
+      };
+    }
+
+    /* dinic */
+    var level = null, it = null;
+    function bfsLevel() {
+      level = fill(-1); level[s] = 0;
+      var q = [s], h = 0;
+      while (h < q.length) {
+        var u = q[h++];
+        for (var i = 0; i < adj[u].length; i++) {
+          var id = adj[u][i], v = E[id].v;
+          if (E[id].cap > EPS && level[v] < 0) { level[v] = level[u] + 1; q.push(v); }
+        }
+      }
+      return level[t] >= 0;
+    }
+    function findPath() {
+      var stack = [], u = s;
+      while (true) {
+        if (u === t) return stack.slice();
+        var adv = false;
+        while (it[u] < adj[u].length) {
+          var id = adj[u][it[u]], v = E[id].v;
+          if (E[id].cap > EPS && level[v] === level[u] + 1) { stack.push(id); u = v; adv = true; break; }
+          it[u]++;
+        }
+        if (!adv) {
+          if (u === s) return null;
+          level[u] = -1;
+          var back = stack.pop(); u = E[back].u; it[u]++;
+        }
+      }
+    }
+    return function () {
+      while (true) {
+        if (!level) { if (!bfsLevel()) return null; onPhase(); it = fill(0); }
+        var p = findPath();
+        if (p) return p;
+        level = null;
+      }
+    };
+  }
+
+  function negCycle(g) {
+    var E = g.E, N = g.N, dist = [], i, it, ch;
+    for (i = 0; i < N; i++) dist.push(0);
+    for (it = 0; it < N + 1; it++) {
+      ch = false;
+      for (i = 0; i < E.length; i++) {
+        var e = E[i];
+        if (e.cap > EPS && dist[e.u] + e.cost < dist[e.v] - 1e-7) { dist[e.v] = dist[e.u] + e.cost; ch = true; }
+      }
+      if (!ch) return false;
+    }
+    return true;
+  }
+
+  function solve(nodes, edges, o) {
+    var g = build(nodes, edges), E = g.E, adj = g.adj, s = g.s, N = g.N;
+    var alg = o.alg, limit = (o.limit == null) ? Infinity : o.limit, rec = !!o.record;
+    var phases = 0, steps = [], flow = 0, augs = 0;
+    var finder = makeFinder(alg, g, function () { phases++; });
+    var snap = function () { return edges.map(function (_, i) { return E[2 * i + 1].cap; }); };
+
+    while (flow < limit - EPS && augs < 20000) {
+      var pes = finder();
+      if (!pes || !pes.length) break;
+      var amt = limit - flow, unit = 0, rer = false, j;
+      for (j = 0; j < pes.length; j++) { amt = Math.min(amt, E[pes[j]].cap); unit += E[pes[j]].cost; if (pes[j] & 1) rer = true; }
+      if (!(amt > EPS)) break;
+      for (j = 0; j < pes.length; j++) { E[pes[j]].cap -= amt; E[pes[j] ^ 1].cap += amt; }
+      flow += amt; augs++;
+      if (rec) {
+        steps.push({
+          nodes: [nodes[s].id].concat(pes.map(function (pe) { return nodes[E[pe].v].id; })),
+          used: pes.map(function (pe) { return pe >> 1; }),
+          rerouted: rer, amt: amt, unit: unit, phase: phases, flows: snap()
+        });
+      }
+    }
+    if (alg !== 'dinic') phases = augs;
+
+    var finalFlows = snap(), cost = 0;
+    edges.forEach(function (e, i) { cost += finalFlows[i] * e.cost; });
+
+    var r = new Array(N), st = [s], i;
+    for (i = 0; i < N; i++) r[i] = false;
+    r[s] = true;
+    while (st.length) {
+      var a = st.pop();
+      for (i = 0; i < adj[a].length; i++) { var b = E[adj[a][i]].v; if (E[adj[a][i]].cap > EPS && !r[b]) { r[b] = true; st.push(b); } }
+    }
+    var cut = [], cutCap = 0;
+    edges.forEach(function (e, k) {
+      if (r[g.ix[e.u]] && !r[g.ix[e.v]] && e.cap > 0) { cut.push(k); cutCap += e.cap; }
+    });
+
+    return {
+      flow: flow, cost: cost, steps: steps, finalFlows: finalFlows, cut: cut, cutCap: cutCap,
+      phases: phases, augs: augs, negCycle: alg === 'mcf' ? negCycle(g) : false
+    };
+  }
+
+  function verify(nodes, edges, res, mode) {
+    var bal = {}, capOk = true;
+    nodes.forEach(function (n) { bal[n.id] = 0; });
+    edges.forEach(function (e, i) {
+      var f = res.finalFlows[i];
+      if (f < -EPS || f > e.cap + EPS) capOk = false;
+      bal[e.u] -= f; bal[e.v] += f;
+    });
+    var cons = nodes.every(function (n) { return n.id === 'S' || n.id === 'T' || Math.abs(bal[n.id]) < 1e-7; });
+    var val = Math.abs(bal.T - res.flow) < 1e-7 && Math.abs(-bal.S - res.flow) < 1e-7;
+    var out = [
+      { ok: capOk, t: 'Capacity respected on every edge' },
+      { ok: cons, t: 'Flow conserved at every intermediate node' },
+      { ok: val, t: 'Outflow of S equals inflow of T' }
+    ];
+    if (mode === 'maxflow') out.push({ ok: Math.abs(res.cutCap - res.flow) < 1e-7, t: 'Max flow equals min-cut capacity' });
+    else out.push({ ok: !res.negCycle, t: 'No negative-cost cycle in the residual graph' });
+    return out;
+  }
+
+  function decompose(nodes, edges, flows) {
+    var rem = flows.slice(), out = {}, paths = [], guard, i;
+    nodes.forEach(function (n) { out[n.id] = []; });
+    edges.forEach(function (e, k) { out[e.u].push(k); });
+    function dfs(u, seen, stack) {
+      if (u === 'T') return true;
+      seen[u] = true;
+      for (var j = 0; j < out[u].length; j++) {
+        var k = out[u][j];
+        if (rem[k] > EPS && !seen[edges[k].v]) {
+          stack.push(k);
+          if (dfs(edges[k].v, seen, stack)) return true;
+          stack.pop();
+        }
+      }
+      return false;
+    }
+    for (guard = 0; guard < 500; guard++) {
+      var stack = [];
+      if (!dfs('S', {}, stack)) break;
+      var amt = Infinity, unit = 0;
+      for (i = 0; i < stack.length; i++) { amt = Math.min(amt, rem[stack[i]]); unit += edges[stack[i]].cost; }
+      for (i = 0; i < stack.length; i++) rem[stack[i]] -= amt;
+      paths.push({ nodes: ['S'].concat(stack.map(function (k) { return edges[k].v; })), amt: amt, unit: unit });
+    }
+    paths.sort(function (a, b) { return b.amt - a.amt; });
+    return paths;
+  }
+
+  function copyEdges(edges) { return edges.map(function (e) { return { id: e.id, u: e.u, v: e.v, cap: e.cap, cost: e.cost }; }); }
+
+  function curve(nodes, edges) {
+    var r = solve(nodes, edges, { alg: 'mcf', record: true });
+    var pts = [[0, 0]], f = 0, c = 0;
+    r.steps.forEach(function (s) { f += s.amt; c += s.amt * s.unit; pts.push([f, c]); });
+    return { pts: pts, steps: r.steps };
+  }
+
+  function sensitivity(nodes, edges, inc) {
+    var base = solve(nodes, edges, { alg: 'dinic' }).flow;
+    return edges.map(function (e, i) {
+      var c = copyEdges(edges); c[i].cap += inc;
+      return { i: i, delta: solve(nodes, c, { alg: 'dinic' }).flow - base };
+    });
+  }
+
+  function failures(nodes, edges) {
+    var base = solve(nodes, edges, { alg: 'dinic' }).flow;
+    return { base: base, rows: edges.map(function (e, i) {
+      var c = copyEdges(edges); c[i].cap = 0;
+      return { i: i, loss: base - solve(nodes, c, { alg: 'dinic' }).flow };
+    }) };
+  }
+
+  function benchmark(nodes, edges, reps) {
+    var algs = ['ek', 'dinic', 'ff', 'mcf'];
+    return algs.map(function (a) {
+      var r = solve(nodes, edges, { alg: a });
+      var t0 = performance.now();
+      for (var k = 0; k < reps; k++) solve(nodes, edges, { alg: a });
+      var us = (performance.now() - t0) / reps * 1000;
+      return { alg: a, flow: r.flow, cost: r.cost, augs: r.augs, phases: r.phases, us: us };
+    });
+  }
+
+  return { solve: solve, verify: verify, decompose: decompose, curve: curve, sensitivity: sensitivity, failures: failures, benchmark: benchmark };
+})();
+</script>
+
+<script id="ui">
+(function () {
+  var C = FlowCore;
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function fmt(n) { return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100); }
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+  var POS = { S: [56, 260], A: [230, 90], B: [230, 260], C: [230, 430], H1: [450, 100], H2: [450, 260], H3: [450, 420], D1: [670, 90], D2: [670, 260], D3: [670, 430], T: [846, 260] };
+  var ORDER = ['S', 'A', 'B', 'C', 'H1', 'H2', 'H3', 'D1', 'D2', 'D3', 'T'];
+
+  function scen(key, name, desc, unit, sup, hub, dem, el, target) {
+    var subs = { S: 'Source', A: sup[0], B: sup[1], C: sup[2], H1: hub[0], H2: hub[1], H3: hub[2], D1: dem[0], D2: dem[1], D3: dem[2], T: 'Sink' };
+    return {
+      key: key, name: name, desc: desc, unit: unit, target: target,
+      nodes: ORDER.map(function (id) { return { id: id, label: id, sub: subs[id], x: POS[id][0], y: POS[id][1] }; }),
+      edges: el.map(function (e) { return { u: e[0], v: e[1], cap: e[2], cost: e[3] }; })
+    };
+  }
+
+  var SCEN = [
+    scen('supply', 'Supply distribution', 'Three plants feed three hubs that serve three demand zones. The default network.', 'units/hr',
+      ['Plant A', 'Plant B', 'Plant C'], ['Hub 1', 'Hub 2', 'Hub 3'], ['Zone 1', 'Zone 2', 'Zone 3'],
+      [['S','A',40,0],['S','B',30,0],['S','C',25,0],['A','H1',25,4],['A','H2',20,6],['B','H1',15,5],['B','H2',20,3],['B','H3',12,7],['C','H2',10,8],['C','H3',25,2],
+       ['H1','D1',20,3],['H1','D2',15,6],['H2','D1',10,5],['H2','D2',20,2],['H2','D3',12,4],['H3','D2',8,7],['H3','D3',22,3],['D1','T',28,0],['D2','T',30,0],['D3','T',28,0]], 60),
+    scen('power', 'Power dispatch', 'Generators dispatch through substations to three load centres. Costs are generation plus transmission cost per MW.', 'MW',
+      ['Thermal', 'Hydro', 'Solar'], ['Sub N', 'Sub C', 'Sub S'], ['Industrial', 'Residential', 'Commercial'],
+      [['S','A',120,0],['S','B',80,0],['S','C',60,0],['A','H1',70,5],['A','H2',60,4],['B','H2',50,2],['B','H3',40,3],['C','H1',30,1],['C','H3',40,1],
+       ['H1','D1',60,2],['H1','D2',50,3],['H2','D1',40,3],['H2','D2',70,2],['H2','D3',30,4],['H3','D2',30,4],['H3','D3',50,2],['D1','T',90,0],['D2','T',110,0],['D3','T',70,0]], 150),
+    scen('water', 'Water supply', 'Sources are pumped and treated before reaching three city zones. Costs reflect pumping energy.', 'ML/day',
+      ['Dam', 'River intake', 'Borewells'], ['Pump 1', 'Pump 2', 'Treatment'], ['North', 'Central', 'South'],
+      [['S','A',90,0],['S','B',60,0],['S','C',35,0],['A','H1',50,3],['A','H3',45,2],['B','H1',30,4],['B','H2',40,3],['C','H2',20,5],['C','H3',25,4],
+       ['H1','D1',45,2],['H1','D2',35,4],['H2','D2',45,2],['H2','D3',30,3],['H3','D2',25,3],['H3','D3',45,2],['D1','T',40,0],['D2','T',60,0],['D3','T',55,0]], 110),
+    scen('relief', 'Relief logistics', 'Stock moves from depots through staging camps to shelters. Costs are transport hours per tonne.', 'tonnes/day',
+      ['Depot', 'Port stock', 'Airlift'], ['Camp A', 'Camp B', 'Camp C'], ['Shelter 1', 'Shelter 2', 'Shelter 3'],
+      [['S','A',70,0],['S','B',55,0],['S','C',40,0],['A','H1',40,6],['A','H2',35,9],['B','H2',30,4],['B','H3',35,7],['C','H1',20,3],['C','H3',30,5],
+       ['H1','D1',35,5],['H1','D2',25,8],['H2','D2',40,4],['H2','D3',20,6],['H3','D3',40,3],['H3','D1',15,9],['D1','T',40,0],['D2','T',45,0],['D3','T',50,0]], 90)
+  ];
+
+  function rng(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a += 0x6D2B79F5; var t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function randomScen(seed) {
+    var r = rng(seed), ri = function (lo, hi) { return lo + Math.floor(r() * (hi - lo + 1)); };
+    var el = [['S','A',ri(25,50),0],['S','B',ri(25,50),0],['S','C',ri(25,50),0]], hubs = ['H1','H2','H3'], zones = ['D1','D2','D3'];
+    ['A','B','C'].forEach(function (p) {
+      var a = ri(0, 2), b = (a + 1 + ri(0, 1)) % 3;
+      [a, b].forEach(function (h) { el.push([p, hubs[h], ri(10, 30), ri(1, 9)]); });
+    });
+    hubs.forEach(function (h) {
+      var a = ri(0, 2), b = (a + 1 + ri(0, 1)) % 3;
+      [a, b].forEach(function (z) { el.push([h, zones[z], ri(10, 30), ri(1, 9)]); });
+    });
+    zones.forEach(function (z) { el.push([z, 'T', ri(25, 40), 0]); });
+    var sc = scen('random', 'Random network #' + seed, 'Seeded random network.', 'units/hr',
+      ['Plant A', 'Plant B', 'Plant C'], ['Hub 1', 'Hub 2', 'Hub 3'], ['Zone 1', 'Zone 2', 'Zone 3'], el, 50);
+    return sc;
+  }
+
+  var st = {
+    name: '', unit: 'units/hr', nodes: [], edges: [], nextEdge: 1, nextNode: 1, mode: 'maxflow', alg: 'dinic',
+    target: 60, k: 0, res: null, checks: [], rev: 0, modified: false, baseline: null, compact: false,
+    tab: 'lab', timer: null, scenKey: 'supply'
+  };
+  var svg = $('svg'), toastT = null;
+
+  function toast(msg) {
+    var t = $('toast'); t.textContent = msg; t.classList.add('on');
+    clearTimeout(toastT); toastT = setTimeout(function () { t.classList.remove('on'); }, 2600);
+  }
+  function label(id) { for (var i = 0; i < st.nodes.length; i++) if (st.nodes[i].id === id) return st.nodes[i].label; return id; }
+  function stopPlay() { if (st.timer) { clearInterval(st.timer); st.timer = null; } }
+  function modeAlg() { return st.mode === 'mincost' ? 'mcf' : st.alg; }
+
+  function loadScenario(sc) {
+    stopPlay();
+    st.name = sc.name; st.unit = sc.unit; st.scenKey = sc.key; st.modified = false;
+    st.nodes = clone(sc.nodes);
+    st.edges = sc.edges.map(function (e, i) { return { id: i + 1, u: e.u, v: e.v, cap: e.cap, cost: e.cost }; });
+    st.nextEdge = st.edges.length + 1; st.nextNode = 1;
+    st.target = sc.target; $('target').value = sc.target;
+    $('scenSel').value = sc.key;
+    hist = []; redo = []; buildTables(); recompute();
+  }
+
+  function solveLab() {
+    var o = st.mode === 'mincost' ? { alg: 'mcf', limit: Math.max(0, st.target), record: true } : { alg: st.alg, record: true };
+    st.res = C.solve(st.nodes, st.edges, o);
+    st.checks = C.verify(st.nodes, st.edges, st.res, st.mode);
+  }
+  function recompute(touched) {
+    if (touched) st.modified = true;
+    st.rev++; solveLab(); st.k = st.res.steps.length; renderActive(); snap();
+  }
+  function flowsAt(k) {
+    if (k <= 0) return st.edges.map(function () { return 0; });
+    return st.res.steps[k - 1].flows;
+  }
+
+  /* ---------- graph ---------- */
+  function rad(n) { return (n.id === 'S' || n.id === 'T') ? 24 : 22; }
+  function drawGraph() {
+    var nm = {}; st.nodes.forEach(function (n) { nm[n.id] = n; });
+    var flows = flowsAt(st.k), res = st.res;
+    var maxCap = Math.max.apply(null, [1].concat(st.edges.map(function (e) { return e.cap; })));
+    var hasRev = {}; st.edges.forEach(function (e) { hasRev[e.u + '|' + e.v] = true; });
+    var onPath = {};
+    if (st.k > 0) res.steps[st.k - 1].used.forEach(function (i) { onPath[i] = true; });
+    var showCut = st.mode === 'maxflow' && st.k === res.steps.length;
+    var cutSet = {}; if (showCut) res.cut.forEach(function (i) { cutSet[i] = true; });
+    var lines = '', pills = '';
+
+    st.edges.forEach(function (e, i) {
+      var a = nm[e.u], b = nm[e.v]; if (!a || !b) return;
+      var dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+      var px = -dy, py = dx, off = hasRev[e.v + '|' + e.u] ? 6 : 0;
+      var x1 = a.x + dx * rad(a) + px * off, y1 = a.y + dy * rad(a) + py * off;
+      var tx = b.x - dx * rad(b) + px * off, ty = b.y - dy * rad(b) + py * off;
+      var x2 = tx - dx * 9, y2 = ty - dy * 9;
+      var f = flows[i] || 0, full = e.cap > 0 && f >= e.cap - 1e-9;
+      var col = f > 0 ? (full ? 'var(--sat)' : 'var(--flow)') : 'var(--line)';
+      var w = f > 0 ? 2.5 + 5.5 * (f / maxCap) : 2;
+      if (cutSet[i]) lines += '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" style="stroke:var(--cut);stroke-width:13;opacity:.22;stroke-linecap:round"/>';
+      lines += '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" style="stroke:' + col + ';stroke-width:' + w + '"/>';
+      if (onPath[i]) lines += '<line class="onpath" x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '"/>';
+      lines += '<polygon points="' + tx + ',' + ty + ' ' + (x2 + px * 4.5) + ',' + (y2 + py * 4.5) + ' ' + (x2 - px * 4.5) + ',' + (y2 - py * 4.5) + '" style="fill:' + col + '"/>';
+      var txt = st.compact ? fmt(f) : fmt(f) + ' / ' + fmt(e.cap) + (e.cost ? ' · ' + fmt(e.cost) : '');
+      var pw = txt.length * 6.6 + 12, mx = (x1 + tx) / 2, my = (y1 + ty) / 2;
+      pills += '<rect class="e-pill" x="' + (mx - pw / 2) + '" y="' + (my - 9) + '" width="' + pw + '" height="18" rx="9"/>' +
+               '<text class="e-text' + (f > 0 ? '' : ' idle') + '" x="' + mx + '" y="' + my + '">' + txt + '</text>';
+    });
+    var ns = '';
+    st.nodes.forEach(function (n) {
+      var term = n.id === 'S' || n.id === 'T';
+      ns += '<g data-node="' + esc(n.id) + '"><circle class="n-c' + (term ? ' term' : '') + '" cx="' + n.x + '" cy="' + n.y + '" r="' + rad(n) + '"/>' +
+            '<text class="n-t' + (term ? ' term' : '') + '" x="' + n.x + '" y="' + n.y + '">' + esc(n.label) + '</text>' +
+            '<text class="n-sub" x="' + n.x + '" y="' + (n.y + rad(n) + 14) + '">' + esc(n.sub) + '</text></g>';
+    });
+    svg.innerHTML = lines + pills + ns;
+    $('legendLbl').textContent = st.compact ? 'label: flow' : 'label: flow / capacity · unit cost';
+  }
+
+  /* ---------- lab results ---------- */
+  var ALGNAME = { ek: 'Edmonds–Karp', dinic: 'Dinic', ff: 'Ford–Fulkerson (DFS)', mcf: 'Successive shortest paths' };
+
+  function drawResults() {
+    var res = st.res, total = res.flow, u = st.unit;
+    var tiles = [['Flow delivered', fmt(total), u], ['Routing cost', fmt(res.cost), 'total'], ['Average cost', total > 0 ? (res.cost / total).toFixed(2) : '–', 'per unit']];
+    tiles.push(st.mode === 'maxflow' ? ['Min-cut capacity', fmt(res.cutCap), u] : ['Requested', fmt(Math.max(0, st.target)), u]);
+    $('tiles').innerHTML = tiles.map(function (t) { return '<div class="tile"><small>' + t[0] + '</small><b>' + t[1] + '</b><small class="u">' + esc(t[2]) + '</small></div>'; }).join('');
+
+    var txt;
+    if (st.mode === 'maxflow') {
+      var names = res.cut.map(function (i) { return label(st.edges[i].u) + ' → ' + label(st.edges[i].v); });
+      txt = 'The network carries at most <b>' + fmt(total) + '</b> ' + esc(u) + '. ' +
+        (names.length ? 'The limit is set by a minimum cut made of <b>' + esc(names.join(', ')) + '</b>. Add capacity there to raise the total.' : 'No edge limits the flow.') +
+        ' This routing ignores cost and spends ' + fmt(res.cost) + '. Switch to min-cost flow to compare.';
+    } else {
+      var want = Math.max(0, st.target);
+      txt = (total + 1e-9 < want)
+        ? 'The network can only carry <b>' + fmt(total) + '</b> of the <b>' + fmt(want) + '</b> ' + esc(u) + ' requested, so ' + fmt(want - total) + ' goes unmet. Sending that amount at least cost costs <b>' + fmt(res.cost) + '</b>.'
+        : 'The cheapest way to send <b>' + fmt(total) + '</b> ' + esc(u) + ' costs <b>' + fmt(res.cost) + '</b>, which is ' + (total > 0 ? (res.cost / total).toFixed(2) : '0') + ' per unit. Cheapest paths are used first and later paths can reroute earlier flow.';
+    }
+    $('insight').innerHTML = txt;
+
+    var allOk = st.checks.every(function (c) { return c.ok; });
+    $('checks').innerHTML = st.checks.map(function (c) { return '<li><span class="' + (c.ok ? 'y' : 'n') + '">' + (c.ok ? '✓' : '✗') + '</span><span>' + c.t + '</span></li>'; }).join('');
+    $('verChip').className = 'chip ' + (allOk ? 'ok' : 'bad');
+    $('verChip').textContent = allOk ? 'Solution verified' : 'Check failed';
+    $('scenChip').textContent = st.name + (st.modified ? ' (edited)' : '') + ' · ' + ALGNAME[modeAlg()];
+
+    $('stepsTitle').textContent = 'Augmenting paths · ' + ALGNAME[modeAlg()];
+    var sc = $('scrub'); sc.max = res.steps.length; sc.value = st.k;
+    $('stepNo').textContent = 'step ' + st.k + ' of ' + res.steps.length;
+    $('play').textContent = st.timer ? 'Pause' : 'Play';
+    var log = $('log');
+    if (!res.steps.length) { log.innerHTML = '<li class="meta">No path from S to T. Add or widen edges.</li>'; return; }
+    log.innerHTML = res.steps.map(function (s, i) {
+      var p = s.nodes.map(label).map(esc).join(' → ');
+      var m = '+' + fmt(s.amt) + ' ' + esc(u) + (st.mode === 'mincost' ? ' · ' + fmt(s.unit) + '/unit' : '') +
+        (st.mode === 'maxflow' && st.alg === 'dinic' ? ' · phase ' + s.phase : '') + (s.rerouted ? ' · reroutes earlier flow' : '');
+      return '<li><button type="button" data-step="' + (i + 1) + '"' + (i + 1 === st.k ? ' aria-current="true"' : '') + '><span class="path">' + p + '</span><span class="meta">' + m + '</span></button></li>';
+    }).join('');
+  }
+
+  function updateTables() {
+    var flows = flowsAt(st.k), inflow = {};
+    st.nodes.forEach(function (n) { inflow[n.id] = 0; });
+    st.edges.forEach(function (e, i) {
+      var f = flows[i] || 0; inflow[e.v] += f;
+      var c = document.querySelector('[data-flow="' + e.id + '"]'), b = document.querySelector('[data-use="' + e.id + '"]');
+      if (c) c.textContent = fmt(f);
+      if (b) { b.style.width = (e.cap > 0 ? Math.min(100, f / e.cap * 100) : 0) + '%'; b.className = (e.cap > 0 && f >= e.cap - 1e-9) ? 'full' : ''; }
+    });
+    st.nodes.forEach(function (n) { var c = document.querySelector('[data-in="' + n.id + '"]'); if (c) c.textContent = fmt(inflow[n.id]); });
+  }
+
+  function buildTables() {
+    $('rows').innerHTML = st.edges.map(function (e) {
+      var nm = esc(label(e.u)) + ' → ' + esc(label(e.v));
+      return '<tr><td>' + nm + '</td>' +
+        '<td><input type="number" min="0" step="1" value="' + e.cap + '" data-field="cap" data-id="' + e.id + '" aria-label="Capacity ' + nm + '"></td>' +
+        '<td><input type="number" min="0" step="1" value="' + e.cost + '" data-field="cost" data-id="' + e.id + '" aria-label="Unit cost ' + nm + '"></td>' +
+        '<td class="num" data-flow="' + e.id + '">0</td><td><div class="use"><div data-use="' + e.id + '"></div></div></td>' +
+        '<td><button type="button" class="btn" data-del="' + e.id + '" aria-label="Remove edge ' + nm + '">Remove</button></td></tr>';
+    }).join('');
+    $('nrows').innerHTML = st.nodes.map(function (n) {
+      var term = n.id === 'S' || n.id === 'T';
+      return '<tr><td>' + esc(n.id) + '</td>' +
+        '<td><input type="text" style="width:78px" value="' + esc(n.label) + '" data-nf="label" data-nid="' + esc(n.id) + '" aria-label="Label for ' + esc(n.id) + '"></td>' +
+        '<td><input type="text" value="' + esc(n.sub) + '" data-nf="sub" data-nid="' + esc(n.id) + '" aria-label="Name for ' + esc(n.id) + '"></td>' +
+        '<td class="num" data-in="' + esc(n.id) + '">0</td>' +
+        '<td>' + (term ? '' : '<button type="button" class="btn" data-ndel="' + esc(n.id) + '" aria-label="Remove node ' + esc(n.label) + '">Remove</button>') + '</td></tr>';
+    }).join('');
+    var opts = st.nodes.map(function (n) { return '<option value="' + esc(n.id) + '">' + esc(n.label) + ' · ' + esc(n.sub) + '</option>'; }).join('');
+    var f = $('from').value, t = $('to').value;
+    $('from').innerHTML = opts; $('to').innerHTML = opts;
+    $('from').value = f || 'S'; $('to').value = t || 'T';
+    if (!$('from').value) $('from').value = 'S'; if (!$('to').value) $('to').value = 'T';
+  }
+
+  /* ---------- analysis ---------- */
+  var ALGLONG = { ek: 'Edmonds–Karp (BFS)', dinic: 'Dinic (level graph)', ff: 'Ford–Fulkerson (DFS)', mcf: 'Successive shortest paths (SPFA)' };
+  var cache = { key: '', data: null };
+
+  function niceStep(max, n) {
+    var raw = (max / n) || 1, p = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)), f = raw / p;
+    return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p;
+  }
+  function bars(rows, cls) {
+    if (!rows.length) return '';
+    var mx = Math.max.apply(null, rows.map(function (r) { return r.val; }).concat([1e-9]));
+    return '<div class="bars">' + rows.map(function (r) {
+      return '<div class="brow"><span class="bn">' + esc(r.name) + '</span><span class="btrack"><span class="bfill ' + cls + '" style="width:' + (r.val / mx * 100) + '%"></span></span><span class="bv">' + r.txt + '</span></div>';
+    }).join('') + '</div>';
+  }
+  function eName(i) { var e = st.edges[i]; return label(e.u) + ' → ' + label(e.v); }
+
+  function curveSvg(pts, mark) {
+    var W = 520, H = 270, l = 54, r = 16, t = 14, b = 38;
+    var mx = pts[pts.length - 1][0] || 1, my = pts[pts.length - 1][1] || 1;
+    var sx = niceStep(mx, 5), sy = niceStep(my, 4), X = Math.ceil(mx / sx) * sx, Y = Math.ceil(my / sy) * sy;
+    var px = function (v) { return l + (W - l - r) * v / X; }, py = function (v) { return H - b - (H - t - b) * v / Y; };
+    var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Minimum total cost against delivered flow">', v;
+    for (v = 0; v <= Y + 1e-9; v += sy) s += '<line class="gl" x1="' + l + '" x2="' + (W - r) + '" y1="' + py(v) + '" y2="' + py(v) + '"/><text class="tk" x="' + (l - 6) + '" y="' + (py(v) + 3) + '" text-anchor="end">' + fmt(v) + '</text>';
+    for (v = 0; v <= X + 1e-9; v += sx) s += '<text class="tk" x="' + px(v) + '" y="' + (H - b + 15) + '" text-anchor="middle">' + fmt(v) + '</text>';
+    s += '<line class="ax" x1="' + l + '" x2="' + (W - r) + '" y1="' + (H - b) + '" y2="' + (H - b) + '"/><line class="ax" x1="' + l + '" x2="' + l + '" y1="' + t + '" y2="' + (H - b) + '"/>';
+    s += '<text class="tk" x="' + ((l + W - r) / 2) + '" y="' + (H - 6) + '" text-anchor="middle">delivered flow (' + esc(st.unit) + ')</text>';
+    s += '<text class="tk" x="12" y="' + ((t + H - b) / 2) + '" text-anchor="middle" transform="rotate(-90 12 ' + ((t + H - b) / 2) + ')">total cost</text>';
+    if (mark != null && mark > 0 && mark <= mx) s += '<line class="mk" x1="' + px(mark) + '" x2="' + px(mark) + '" y1="' + t + '" y2="' + (H - b) + '"/><text class="mkt" x="' + (px(mark) + 4) + '" y="' + (t + 10) + '">required ' + fmt(mark) + '</text>';
+    s += '<polyline class="cv" points="' + pts.map(function (p) { return px(p[0]) + ',' + py(p[1]); }).join(' ') + '"/>';
+    pts.forEach(function (p, i) { if (i > 0) s += '<circle class="cd" cx="' + px(p[0]) + '" cy="' + py(p[1]) + '" r="3.2"/>'; });
+    return s + '</svg>';
+  }
+
+  function computeAnalysis() {
+    var inc = Math.max(1, parseFloat($('inc').value) || 5), key = st.rev + '|' + inc;
+    if (cache.key === key) return cache.data;
+    var d = {
+      inc: inc, bench: C.benchmark(st.nodes, st.edges, 200), sens: C.sensitivity(st.nodes, st.edges, inc),
+      fail: C.failures(st.nodes, st.edges), curve: C.curve(st.nodes, st.edges), dec: C.decompose(st.nodes, st.edges, st.res.finalFlows)
+    };
+    cache = { key: key, data: d }; return d;
+  }
+
+  function renderAnalysis() {
+    var d = computeAnalysis(), u = st.unit, maxF = d.bench[1].flow;
+    var agree = d.bench[0].flow === d.bench[1].flow && d.bench[1].flow === d.bench[2].flow;
+    $('bench').innerHTML = '<div class="tablewrap"><table><thead><tr><th>Algorithm</th><th class="num">Flow</th><th class="num">Cost</th><th class="num">Paths</th><th class="num">Phases</th><th class="num">µs / run</th></tr></thead><tbody>' +
+      d.bench.map(function (b) { return '<tr><td>' + ALGLONG[b.alg] + '</td><td class="num">' + fmt(b.flow) + '</td><td class="num">' + fmt(b.cost) + '</td><td class="num">' + b.augs + '</td><td class="num">' + b.phases + '</td><td class="num">' + b.us.toFixed(1) + '</td></tr>'; }).join('') +
+      '</tbody></table></div><p class="note">' + (agree ? 'All three max-flow algorithms agree on ' + fmt(maxF) + ' ' + esc(u) + '.' : 'The max-flow algorithms disagree. Check the network.') +
+      ' The cost column for the max-flow methods is the cost of whatever routing each one found. Successive shortest paths gives the cheapest routing for the same flow. Timings are averages over 200 runs in this browser.</p>';
+
+    var cv = d.curve;
+    if (cv.pts.length < 2) $('curve').innerHTML = '<p class="note">No path from S to T.</p>';
+    else {
+      var first = cv.steps[0].unit, last = cv.steps[cv.steps.length - 1].unit;
+      $('curve').innerHTML = curveSvg(cv.pts, st.mode === 'mincost' ? st.target : null) +
+        '<p class="note">Marginal cost rises from ' + fmt(first) + ' per unit for the first ' + esc(u) + ' to ' + fmt(last) + ' per unit for the last. Each dot is one augmenting path.</p>';
+    }
+
+    var sr = d.sens.filter(function (r) { return r.delta > 0; }).sort(function (a, b) { return b.delta - a.delta; }).slice(0, 8);
+    $('sens').innerHTML = sr.length
+      ? bars(sr.map(function (r) { return { name: eName(r.i), val: r.delta, txt: '+' + fmt(r.delta) }; }), 'ok') + '<p class="note">Gain in max flow from adding ' + fmt(d.inc) + ' ' + esc(u) + ' of capacity to one edge. Edges not listed give no gain, because they are not part of the bottleneck.</p>'
+      : '<p class="note">Adding ' + fmt(d.inc) + ' ' + esc(u) + ' to any single edge does not raise max flow. Try a larger upgrade size, or widen several edges together.</p>';
+
+    var fr = d.fail.rows.filter(function (r) { return r.loss > 0; }).sort(function (a, b) { return b.loss - a.loss; }).slice(0, 8);
+    var worst = fr.length ? fr[0] : null;
+    $('fail').innerHTML = (fr.length ? bars(fr.map(function (r) { return { name: eName(r.i), val: r.loss, txt: '−' + fmt(r.loss) }; }), 'bad') : '') +
+      '<p class="note">' + (worst
+        ? 'Losing ' + esc(eName(worst.i)) + ' cuts max flow by ' + fmt(worst.loss) + ' ' + esc(u) + ' (' + (worst.loss / d.fail.base * 100).toFixed(0) + '% of ' + fmt(d.fail.base) + ').'
+        : 'No single edge failure reduces max flow, so the network has spare routes everywhere.') +
+      ' Each bar removes one edge and re-solves.</p>';
+
+    var dec = d.dec;
+    $('dec').innerHTML = dec.length
+      ? '<div class="tablewrap"><table><thead><tr><th>Path</th><th class="num">Flow</th><th class="num">Unit cost</th><th class="num">Cost</th></tr></thead><tbody>' +
+        dec.map(function (p) { return '<tr><td class="path">' + p.nodes.map(label).map(esc).join(' → ') + ' → T</td><td class="num">' + fmt(p.amt) + '</td><td class="num">' + fmt(p.unit) + '</td><td class="num">' + fmt(p.amt * p.unit) + '</td></tr>'; }).join('') +
+        '<tr class="total"><td>Total</td><td class="num">' + fmt(st.res.flow) + '</td><td class="num">' + (st.res.flow > 0 ? (st.res.cost / st.res.flow).toFixed(2) : '–') + '</td><td class="num">' + fmt(st.res.cost) + '</td></tr></tbody></table></div>'
+      : '<p class="note">The current solution carries no flow.</p>';
+
+    var inflow = {}; st.nodes.forEach(function (n) { inflow[n.id] = 0; });
+    st.edges.forEach(function (e, i) { inflow[e.v] += st.res.finalFlows[i]; });
+    var tot = st.res.flow || 1;
+    var rows = st.nodes.filter(function (n) { return n.id !== 'S'; }).map(function (n) { return { name: n.label + ' · ' + n.sub, val: inflow[n.id], txt: (inflow[n.id] / tot * 100).toFixed(0) + '%' }; });
+    $('thru').innerHTML = bars(rows, '') + '<p class="note">Share of the total flow that passes through each node.</p>';
+  }
+
+  /* ---------- scenarios ---------- */
+  function renderScenarios() {
+    $('scards').innerHTML = SCEN.map(function (s) {
+      return '<div class="card scard' + (s.key === st.scenKey ? ' cur' : '') + '"><h3>' + esc(s.name) + '</h3><p class="meta">' + esc(s.desc) + '</p>' +
+        '<p class="meta">' + s.nodes.length + ' nodes · ' + s.edges.length + ' edges · unit: ' + esc(s.unit) + '</p>' +
+        '<div><button type="button" class="btn ' + (s.key === st.scenKey ? '' : 'primary') + '" data-load="' + s.key + '">' + (s.key === st.scenKey ? 'Reload' : 'Load scenario') + '</button></div></div>';
+    }).join('');
+    var b = st.baseline, el = $('cmp');
+    if (!b) { el.innerHTML = '<p class="note">Pin the current solution as a baseline with “Pin as baseline” in the Network lab. Change capacities or costs, then come back here to see what moved.</p>'; return; }
+    var cur = snapshot();
+    function row(name, x, y, lowerBetter) {
+      var dlt = y - x, cls = dlt === 0 ? '' : ((dlt > 0) !== lowerBetter ? 'delta-up' : 'delta-down');
+      return '<tr><td>' + name + '</td><td class="num">' + fmt(x) + '</td><td class="num">' + fmt(y) + '</td><td class="num ' + cls + '">' + (dlt > 0 ? '+' : '') + fmt(Math.round(dlt * 100) / 100) + '</td></tr>';
+    }
+    var diffs = [];
+    cur.edges.forEach(function (e) {
+      var o = b.edges.filter(function (x) { return x.id === e.id; })[0];
+      if (!o) diffs.push('added ' + e.u + ' → ' + e.v + ' (cap ' + fmt(e.cap) + ', cost ' + fmt(e.cost) + ')');
+      else {
+        if (o.cap !== e.cap) diffs.push(e.u + ' → ' + e.v + ' capacity ' + fmt(o.cap) + ' → ' + fmt(e.cap));
+        if (o.cost !== e.cost) diffs.push(e.u + ' → ' + e.v + ' cost ' + fmt(o.cost) + ' → ' + fmt(e.cost));
+      }
+    });
+    b.edges.forEach(function (o) { if (!cur.edges.some(function (e) { return e.id === o.id; })) diffs.push('removed ' + o.u + ' → ' + o.v); });
+    el.innerHTML = '<p class="note" style="margin:0 0 8px">Baseline: ' + esc(b.name) + ' · ' + b.obj + '</p><div class="tablewrap"><table><thead><tr><th>Metric</th><th class="num">Baseline</th><th class="num">Current</th><th class="num">Change</th></tr></thead><tbody>' +
+      row('Flow delivered', b.flow, cur.flow, false) + row('Routing cost', b.cost, cur.cost, true) + row('Average cost per unit', b.avg, cur.avg, true) + row('Saturated edges', b.sat, cur.sat, true) + row('Augmenting paths', b.augs, cur.augs, true) +
+      '</tbody></table></div>' + (diffs.length ? '<p class="note">Changes since the baseline: ' + esc(diffs.slice(0, 8).join('; ')) + (diffs.length > 8 ? '; and ' + (diffs.length - 8) + ' more' : '') + '.</p>' : '<p class="note">The network matches the baseline.</p>');
+  }
+  function snapshot() {
+    var r = st.res, sat = 0;
+    st.edges.forEach(function (e, i) { if (e.cap > 0 && r.finalFlows[i] >= e.cap - 1e-9) sat++; });
+    return { name: st.name, obj: (st.mode === 'maxflow' ? 'max flow' : 'min-cost flow') + ' · ' + ALGNAME[modeAlg()], edges: C_copy(st.edges), flow: r.flow, cost: r.cost, avg: r.flow > 0 ? Math.round(r.cost / r.flow * 100) / 100 : 0, sat: sat, augs: r.augs };
+  }
+  function C_copy(edges) { return edges.map(function (e) { return { id: e.id, u: e.u, v: e.v, cap: e.cap, cost: e.cost }; }); }
+
+  /* ---------- export ---------- */
+  function exportJson() {
+    return JSON.stringify({ name: st.name, unit: st.unit, objective: st.mode, target: st.target, nodes: st.nodes.map(function (n) { return { id: n.id, label: n.label, sub: n.sub, x: Math.round(n.x), y: Math.round(n.y) }; }), edges: st.edges.map(function (e) { return { u: e.u, v: e.v, cap: e.cap, cost: e.cost }; }) }, null, 2);
+  }
+  function exportPython() {
+    var L = ['"""Network exported from Smart Network Flow and Resource Allocation System: ' + st.name.replace(/"/g, "'") + '"""', 'import networkx as nx', '', 'G = nx.DiGraph()'];
+    st.edges.forEach(function (e) { L.push('G.add_edge(' + JSON.stringify(e.u) + ', ' + JSON.stringify(e.v) + ', capacity=' + e.cap + ', weight=' + e.cost + ')'); });
+    L.push('', '# Maximum flow', 'value, flows = nx.maximum_flow(G, "S", "T")', 'print("max flow:", value)', '',
+      '# Minimum-cost flow for a required value (raises NetworkXUnfeasible if the network cannot carry it)',
+      'G.nodes["S"]["demand"] = -' + Math.max(0, st.target), 'G.nodes["T"]["demand"] = ' + Math.max(0, st.target),
+      'cost, flows = nx.network_simplex(G)', 'print("min cost:", cost)');
+    return L.join('\n');
+  }
+  function exportReport() {
+    var d = computeAnalysis(), r = st.res, u = st.unit, L = [];
+    var mx = d.bench[1];
+    L.push('SMART NETWORK FLOW AND RESOURCE ALLOCATION SYSTEM', 'Scenario: ' + st.name + (st.modified ? ' (edited)' : ''), 'Network: ' + st.nodes.length + ' nodes, ' + st.edges.length + ' edges, unit ' + u, '');
+    L.push('Current solution', '  Objective: ' + (st.mode === 'maxflow' ? 'maximum flow' : 'minimum cost for ' + fmt(st.target) + ' ' + u), '  Algorithm: ' + ALGNAME[modeAlg()],
+      '  Flow delivered: ' + fmt(r.flow) + ' ' + u, '  Routing cost: ' + fmt(r.cost) + (r.flow > 0 ? ' (' + (r.cost / r.flow).toFixed(2) + ' per unit)' : ''), '  Augmenting paths: ' + r.augs, '');
+    L.push('Checks');
+    st.checks.forEach(function (c) { L.push('  [' + (c.ok ? 'x' : ' ') + '] ' + c.t); });
+    L.push('', 'Capacity of the network', '  Maximum flow: ' + fmt(mx.flow) + ' ' + u);
+    var cutR = C.solve(st.nodes, st.edges, { alg: 'dinic' });
+    L.push('  Bottleneck (min cut): ' + (cutR.cut.length ? cutR.cut.map(eName).join(', ') : 'none'));
+    var sr = d.sens.filter(function (x) { return x.delta > 0; }).sort(function (a, b) { return b.delta - a.delta; }).slice(0, 3);
+    L.push('  Best upgrades (+' + fmt(d.inc) + ' capacity): ' + (sr.length ? sr.map(function (x) { return eName(x.i) + ' (+' + fmt(x.delta) + ')'; }).join(', ') : 'none'));
+    var fr = d.fail.rows.filter(function (x) { return x.loss > 0; }).sort(function (a, b) { return b.loss - a.loss; }).slice(0, 3);
+    L.push('  Most critical links: ' + (fr.length ? fr.map(function (x) { return eName(x.i) + ' (−' + fmt(x.loss) + ')'; }).join(', ') : 'none'));
+    L.push('', 'Flow paths');
+    d.dec.forEach(function (p) { L.push('  ' + p.nodes.map(label).join(' > ') + ' > T : ' + fmt(p.amt) + ' at ' + fmt(p.unit) + ' per unit'); });
+    return L.join('\n');
+  }
+  function renderExport() {
+    $('jsonOut').value = exportJson();
+    $('pyOut').textContent = exportPython();
+    $('repOut').textContent = exportReport();
+  }
+  function copyFrom(id, btn) {
+    var el = $(id), text = el.value !== undefined && el.tagName === 'TEXTAREA' ? el.value : el.textContent;
+    var done = function () { toast('Copied'); };
+    var fallback = function () {
+      try {
+        if (el.select) el.select();
+        else { var rg = document.createRange(); rg.selectNodeContents(el); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(rg); }
+      } catch (err) { /* selection unavailable */ }
+      toast('Selected. Press Ctrl+C or Cmd+C to copy.');
+    };
+    try { navigator.clipboard.writeText(text).then(done, fallback); } catch (err) { fallback(); }
+  }
+  function importJson() {
+    var raw = $('jsonIn').value.trim(), d;
+    try { d = JSON.parse(raw); } catch (err) { toast('That is not valid JSON.'); return; }
+    if (!d || !Array.isArray(d.nodes) || !Array.isArray(d.edges)) { toast('Expected an object with nodes and edges arrays.'); return; }
+    var ids = {}, ok = true;
+    d.nodes.forEach(function (n) { if (!n || typeof n.id !== 'string') ok = false; else ids[n.id] = true; });
+    if (!ok || !ids.S || !ids.T) { toast('Every node needs a string id, and nodes S and T are required.'); return; }
+    d.edges.forEach(function (e) {
+      if (!e || !ids[e.u] || !ids[e.v] || !isFinite(e.cap) || !isFinite(e.cost) || e.cap < 0 || e.cost < 0) ok = false;
+    });
+    if (!ok) { toast('Every edge needs existing node ids and non-negative cap and cost.'); return; }
+    var sc = {
+      key: 'custom', name: d.name || 'Imported network', unit: d.unit || 'units', target: isFinite(d.target) ? d.target : 60,
+      nodes: d.nodes.map(function (n, i) { return { id: n.id, label: String(n.label || n.id), sub: String(n.sub || ''), x: isFinite(n.x) ? n.x : 100 + (i % 6) * 120, y: isFinite(n.y) ? n.y : 60 + Math.floor(i / 6) * 120 }; }),
+      edges: d.edges.map(function (e) { return { u: e.u, v: e.v, cap: +e.cap, cost: +e.cost }; })
+    };
+    ensureCustomOption(); loadScenario(sc); toast('Network loaded.');
+  }
+  function ensureCustomOption() {
+    if (!$('scenSel').querySelector('option[value="custom"]')) { var o = document.createElement('option'); o.value = 'custom'; o.textContent = 'Imported / random'; $('scenSel').appendChild(o); }
+  }
+
+
+  /* ---------- dashboard, history, exports ---------- */
+  var hist = [], redo = [], restoring = false, cache = { rev: -1 };
+  function stateStr() { return JSON.stringify({ n: st.nodes, e: st.edges, t: st.target, m: st.mode }); }
+  function snap() { if (restoring) return; var x = stateStr(); if (hist[hist.length - 1] !== x) { hist.push(x); if (hist.length > 60) hist.shift(); redo = []; } }
+  function restore(x) { var o = JSON.parse(x); restoring = true; st.nodes = o.n; st.edges = o.e; st.target = o.t; $('target').value = o.t; st.modified = true; buildTables(); recompute(); restoring = false; }
+  function undo() { if (hist.length < 2) { toast('Nothing to undo'); return; } redo.push(hist.pop()); restore(hist[hist.length - 1]); }
+  function redoIt() { if (!redo.length) { toast('Nothing to redo'); return; } var x = redo.pop(); hist.push(x); restore(x); }
+  function analyse() {
+    if (cache.rev === st.rev) return cache;
+    var r = st.res, fl = r.finalFlows || [], base = C.solve(st.nodes, st.edges, { alg: 'dinic' }).flow, crit = [], ups = [];
+    st.edges.forEach(function (e, i) {
+      if ((fl[i] || 0) > 0) { var d = base - C.solve(st.nodes, st.edges.filter(function (x) { return x !== e; }), { alg: 'dinic' }).flow; if (d > 1e-9) crit.push({ e: e, d: d }); }
+      if (e.cap > 0 && (fl[i] || 0) >= e.cap - 1e-9) {
+        var ed = st.edges.map(function (x) { return x === e ? { id: x.id, u: x.u, v: x.v, cap: x.cap + 5, cost: x.cost } : x; });
+        var g = C.solve(st.nodes, ed, { alg: 'dinic' }).flow - base; if (g > 1e-9) ups.push({ e: e, g: g });
+      }
+    });
+    crit.sort(function (a, b) { return b.d - a.d; }); ups.sort(function (a, b) { return b.g - a.g; });
+    cache = { rev: st.rev, base: base, crit: crit, ups: ups }; return cache;
+  }
+  function eName(e) { return label(e.u) + ' → ' + label(e.v); }
+  function barRows(items, max, cls) {
+    return items.length ? items.map(function (x) { return '<div class="brow"><span class="bn">' + esc(x.n) + '</span><span class="btrack"><span class="bfill ' + (cls || '') + '" style="width:' + (max > 0 ? Math.max(3, x.v / max * 100) : 0) + '%"></span></span><span class="bv">' + x.t + '</span></div>'; }).join('') : '<p class="note">None found.</p>';
+  }
+  function summaryLines() {
+    var r = st.res, a = analyse(), want = st.mode === 'mincost' ? st.target : r.flow, L = [];
+    L.push('Delivers ' + fmt(r.flow) + ' ' + st.unit + (want > r.flow + 1e-9 ? ' against ' + fmt(want) + ' requested (' + fmt(want - r.flow) + ' unmet).' : ', meeting the request.'));
+    if (r.cost > 0) L.push('Routing cost is ' + fmt(r.cost) + ' in total, averaging ' + (r.cost / Math.max(r.flow, 1e-9)).toFixed(2) + ' per unit.');
+    L.push('Network capacity ceiling is ' + fmt(a.base) + ' ' + st.unit + '.');
+    if (a.crit.length) L.push('Most critical link: ' + eName(a.crit[0].e) + '. Losing it cuts the ceiling by ' + fmt(a.crit[0].d) + '.');
+    else L.push('No single link failure reduces the achievable maximum flow.');
+    if (a.ups.length) L.push('Best upgrade: adding 5 capacity to ' + eName(a.ups[0].e) + ' raises the ceiling by ' + fmt(a.ups[0].g) + '.');
+    else L.push('No saturated link would raise throughput if upgraded by 5.');
+    return L;
+  }
+  function renderDash() {
+    var r = st.res; if (!r) return;
+    var fl = r.finalFlows || [], n = st.edges.length, sat = 0, sum = 0, used = 0, a = analyse();
+    st.edges.forEach(function (e, i) { var u = e.cap > 0 ? (fl[i] || 0) / e.cap : 0; if (e.cap > 0 && u >= 0.999) sat++; if ((fl[i] || 0) > 0) { used++; sum += u; } });
+    var want = st.mode === 'mincost' ? st.target : r.flow, eff = want > 0 ? Math.min(100, r.flow / want * 100) : 100;
+    var util = a.base > 0 ? r.flow / a.base * 100 : 0;
+    $('kpis').innerHTML =
+      '<div class="kpi"><small>Throughput</small><b>' + fmt(r.flow) + '</b><span>' + esc(st.unit) + '</span></div>' +
+      '<div class="kpi ' + (eff < 99.5 ? 'warn' : 'good') + '"><small>Demand met</small><b>' + eff.toFixed(0) + '%</b><span>of ' + fmt(want) + ' requested</span></div>' +
+      '<div class="kpi"><small>Capacity used</small><b>' + util.toFixed(0) + '%</b><span>of ' + fmt(a.base) + ' ceiling</span></div>' +
+      '<div class="kpi"><small>Avg link load</small><b>' + (used ? (sum / used * 100).toFixed(0) : 0) + '%</b><span>' + used + ' of ' + n + ' links active</span></div>' +
+      '<div class="kpi ' + (sat ? 'warn' : 'good') + '"><small>Saturated links</small><b>' + sat + '</b><span>bottlenecks</span></div>' +
+      '<div class="kpi ' + (a.crit.length ? 'bad' : 'good') + '"><small>Critical links</small><b>' + a.crit.length + '</b><span>single points of failure</span></div>';
+    $('sum').innerHTML = summaryLines().map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('');
+    var cd = st.edges.map(function (e, i) { return { n: eName(e), v: (fl[i] || 0) * e.cost }; }).filter(function (x) { return x.v > 0; }).sort(function (x, y) { return y.v - x.v; }).slice(0, 5);
+    cd.forEach(function (x) { x.t = fmt(x.v); });
+    $('drv').innerHTML = barRows(cd, cd.length ? cd[0].v : 0);
+    var rk = a.crit.slice(0, 5).map(function (x) { return { n: eName(x.e), v: x.d, t: '-' + fmt(x.d) }; });
+    $('risk').innerHTML = barRows(rk, rk.length ? rk[0].v : 0, 'bad');
+    $('heat').innerHTML = st.edges.map(function (e, i) { return { e: e, f: fl[i] || 0, u: e.cap > 0 ? (fl[i] || 0) / e.cap : 0 }; }).sort(function (x, y) { return y.u - x.u; }).map(function (x) {
+      var hue = Math.round(150 - 140 * Math.min(1, x.u));
+      return '<div class="hc" style="background:hsl(' + hue + ',38%,' + (x.u > .6 && x.u < .9 ? 36 : 33) + '%)"><b>' + esc(eName(x.e)) + '</b>' + fmt(x.f) + ' / ' + fmt(x.e.cap) + ' · ' + Math.round(x.u * 100) + '%</div>';
+    }).join('');
+    applyFilter();
+  }
+  function applyFilter() {
+    var q = ($('edgeFilter').value || '').toLowerCase().trim();
+    document.querySelectorAll('#rows tr').forEach(function (tr) { var c = tr.cells[0]; tr.hidden = !!q && (c ? c.textContent.toLowerCase() : '').indexOf(q) < 0; });
+  }
+  $('edgeFilter').addEventListener('input', applyFilter);
+  document.querySelectorAll('[data-th]').forEach(function (b) {
+    b.addEventListener('click', function () { document.documentElement.setAttribute('data-theme', b.getAttribute('data-th')); drawGraph(); });
+  });
+  function download(name, blob) { var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+  $('undo').addEventListener('click', undo); $('redo').addEventListener('click', redoIt);
+  $('resetScen').addEventListener('click', function () { var sc = SCEN.filter(function (x) { return x.key === st.scenKey; })[0]; if (sc) { loadScenario(sc); toast('Scenario reset'); } else toast('No preset to reset to'); });
+  $('prt').addEventListener('click', function () { try { window.print(); } catch (e) { toast('Printing is blocked here'); } });
+  $('cpSum').addEventListener('click', function () {
+    var t = st.name + '\n' + summaryLines().map(function (x) { return '- ' + x; }).join('\n');
+    try { navigator.clipboard.writeText(t).then(function () { toast('Summary copied'); }, function () { toast('Copy blocked here'); }); } catch (e) { toast('Copy blocked here'); }
+  });
+  $('dlCsv').addEventListener('click', function () {
+    var fl = st.res.finalFlows || [], L = ['from,to,capacity,unit_cost,flow,utilization_pct,flow_cost'];
+    st.edges.forEach(function (e, i) { L.push([label(e.u), label(e.v), e.cap, e.cost, fl[i] || 0, e.cap ? Math.round((fl[i] || 0) / e.cap * 100) : 0, (fl[i] || 0) * e.cost].join(',')); });
+    download('network_flows.csv', new Blob([L.join('\n')], { type: 'text/csv' })); toast('CSV downloaded');
+  });
+  $('dlPng').addEventListener('click', function () {
+    var c = svg.cloneNode(true), o = svg.querySelectorAll('*'), q = c.querySelectorAll('*'), P = ['fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'font-family', 'font-size', 'font-weight', 'text-anchor', 'dominant-baseline', 'opacity'];
+    o.forEach(function (el, i) { var cs = getComputedStyle(el); P.forEach(function (p) { q[i].style.setProperty(p, cs.getPropertyValue(p)); }); });
+    c.setAttribute('xmlns', 'http://www.w3.org/2000/svg'); c.setAttribute('width', 1800); c.setAttribute('height', 1040);
+    var img = new Image();
+    img.onload = function () {
+      var cv = document.createElement('canvas'); cv.width = 1800; cv.height = 1040; var x = cv.getContext('2d');
+      x.fillStyle = '#fff'; x.fillRect(0, 0, 1800, 1040); x.drawImage(img, 0, 0);
+      try { cv.toBlob(function (b) { download('network_graph.png', b); toast('PNG downloaded'); }); } catch (e) { toast('PNG export blocked here'); }
+    };
+    img.onerror = function () { toast('PNG export failed'); };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(c));
+  });
+  document.addEventListener('keydown', function (e) {
+    var t = e.target && e.target.tagName; if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redoIt(); }
+    else if (!e.ctrlKey && !e.metaKey && !e.altKey && /^[1-5]$/.test(e.key)) { try { location.hash = TABS[+e.key - 1]; } catch (x) { } showTab(TABS[+e.key - 1]); }
+  });
+
+  /* ---------- tabs ---------- */
+  var TABS = ['lab', 'analysis', 'scenarios', 'theory', 'export'];
+  function renderActive() {
+    renderDash(); drawGraph(); drawResults(); updateTables();
+    if (st.tab === 'analysis') renderAnalysis();
+    if (st.tab === 'scenarios') renderScenarios();
+    if (st.tab === 'export') renderExport();
+  }
+  function showTab(name) {
+    if (TABS.indexOf(name) < 0) name = 'lab';
+    st.tab = name; stopPlay();
+    TABS.forEach(function (t) { $('panel-' + t).hidden = t !== name; });
+    document.querySelectorAll('.tab').forEach(function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === name)); });
+    renderActive();
+  }
+  document.querySelectorAll('.tab').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var n = b.getAttribute('data-tab');
+      try { location.hash = n; } catch (err) { /* hash unavailable */ }
+      showTab(n);
+    });
+  });
+  window.addEventListener('hashchange', function () { var n = location.hash.replace('#', ''); if (TABS.indexOf(n) >= 0 && n !== st.tab) showTab(n); });
+
+  /* ---------- events ---------- */
+  document.querySelectorAll('[data-mode]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      stopPlay(); st.mode = b.getAttribute('data-mode');
+      document.querySelectorAll('[data-mode]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      $('targetField').hidden = st.mode !== 'mincost'; $('algField').hidden = st.mode === 'mincost';
+      $('targetLbl').textContent = 'Required flow (' + st.unit + ')';
+      recompute();
+    });
+  });
+  $('alg').addEventListener('change', function (e) { stopPlay(); st.alg = e.target.value; recompute(); });
+  $('target').addEventListener('input', function (e) { stopPlay(); st.target = parseFloat(e.target.value) || 0; recompute(); });
+  $('compact').addEventListener('change', function (e) { st.compact = e.target.checked; drawGraph(); });
+  $('scenSel').innerHTML = SCEN.map(function (s) { return '<option value="' + s.key + '">' + esc(s.name) + '</option>'; }).join('');
+  $('scenSel').addEventListener('change', function (e) {
+    var sc = SCEN.filter(function (s) { return s.key === e.target.value; })[0]; if (sc) loadScenario(sc);
+  });
+  $('tidy').addEventListener('click', function () {
+    st.nodes.forEach(function (n) { if (POS[n.id]) { n.x = POS[n.id][0]; n.y = POS[n.id][1]; } });
+    drawGraph(); toast('Standard nodes returned to their default positions.');
+  });
+  $('pin').addEventListener('click', function () { st.baseline = snapshot(); toast('Baseline pinned. Compare it in the Scenarios tab.'); if (st.tab === 'scenarios') renderScenarios(); });
+
+  $('addNode').addEventListener('click', function () {
+    stopPlay(); var n = st.nextNode++;
+    st.nodes.splice(st.nodes.length - 1, 0, { id: 'N' + n, label: 'N' + n, sub: 'Relay', x: 340, y: 40 + ((n - 1) % 8) * 55 });
+    buildTables(); recompute(true);
+  });
+  $('addEdge').addEventListener('click', function () {
+    var u = $('from').value, v = $('to').value;
+    if (u === v) { toast('Pick two different nodes.'); return; }
+    if (v === 'S' || u === 'T') { toast('Edges cannot enter S or leave T.'); return; }
+    if (st.edges.some(function (e) { return e.u === u && e.v === v; })) { toast('That edge exists. Change its capacity or cost in the table.'); return; }
+    stopPlay();
+    st.edges.push({ id: st.nextEdge++, u: u, v: v, cap: Math.max(0, parseFloat($('newCap').value) || 0), cost: Math.max(0, parseFloat($('newCost').value) || 0) });
+    buildTables(); recompute(true);
+  });
+  $('rows').addEventListener('input', function (e) {
+    var el = e.target, f = el.getAttribute('data-field'); if (!f) return;
+    var id = +el.getAttribute('data-id'), ed = st.edges.filter(function (x) { return x.id === id; })[0]; if (!ed) return;
+    ed[f] = Math.max(0, parseFloat(el.value) || 0); stopPlay(); recompute(true);
+  });
+  $('rows').addEventListener('click', function (e) {
+    var id = e.target.getAttribute && e.target.getAttribute('data-del'); if (!id) return;
+    stopPlay(); st.edges = st.edges.filter(function (x) { return x.id !== +id; }); buildTables(); recompute(true);
+  });
+  $('nrows').addEventListener('change', function (e) {
+    var el = e.target, f = el.getAttribute('data-nf'); if (!f) return;
+    var n = st.nodes.filter(function (x) { return x.id === el.getAttribute('data-nid'); })[0]; if (!n) return;
+    n[f] = el.value.trim() || (f === 'label' ? n.id : ''); buildTables(); recompute(true);
+  });
+  $('nrows').addEventListener('click', function (e) {
+    var id = e.target.getAttribute && e.target.getAttribute('data-ndel'); if (!id) return;
+    stopPlay();
+    st.nodes = st.nodes.filter(function (n) { return n.id !== id; });
+    st.edges = st.edges.filter(function (x) { return x.u !== id && x.v !== id; });
+    buildTables(); recompute(true);
+  });
+  $('scrub').addEventListener('input', function (e) { stopPlay(); st.k = +e.target.value; drawGraph(); drawResults(); updateTables(); });
+  $('log').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-step]'); if (!b) return;
+    stopPlay(); st.k = +b.getAttribute('data-step'); drawGraph(); drawResults(); updateTables();
+  });
+  $('play').addEventListener('click', function () {
+    if (st.timer) { stopPlay(); drawResults(); return; }
+    if (!st.res.steps.length) return;
+    if (st.k >= st.res.steps.length) st.k = 0;
+    st.timer = setInterval(function () {
+      st.k++; if (st.k >= st.res.steps.length) stopPlay();
+      drawGraph(); drawResults(); updateTables();
+    }, 750);
+    drawGraph(); drawResults(); updateTables();
+  });
+  $('inc').addEventListener('input', function () { if (st.tab === 'analysis') renderAnalysis(); });
+  $('scards').addEventListener('click', function (e) {
+    var k = e.target.getAttribute && e.target.getAttribute('data-load'); if (!k) return;
+    var sc = SCEN.filter(function (s) { return s.key === k; })[0]; if (sc) { loadScenario(sc); toast('Loaded ' + sc.name + '.'); }
+  });
+  $('gen').addEventListener('click', function () {
+    var seed = Math.max(1, Math.floor(parseFloat($('seed').value) || 1)); ensureCustomOption(); loadScenario(randomScen(seed)); toast('Generated network with seed ' + seed + '.');
+  });
+  $('loadJson').addEventListener('click', importJson);
+  document.querySelectorAll('[data-copy]').forEach(function (b) { b.addEventListener('click', function () { copyFrom(b.getAttribute('data-copy'), b); }); });
+
+  /* drag nodes */
+  var drag = null;
+  svg.addEventListener('pointerdown', function (e) {
+    var g = e.target.closest('[data-node]'); if (!g) return;
+    drag = g.getAttribute('data-node'); svg.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  svg.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    var pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    var p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    st.nodes.forEach(function (n) { if (n.id === drag) { n.x = Math.max(30, Math.min(870, p.x)); n.y = Math.max(30, Math.min(480, p.y)); } });
+    drawGraph();
+  });
+  var endDrag = function () { drag = null; };
+  svg.addEventListener('pointerup', endDrag);
+  svg.addEventListener('pointercancel', endDrag);
+
+  loadScenario(SCEN[0]);
+  var h = ''; try { h = location.hash.replace('#', ''); } catch (err) { h = ''; }
+  if (TABS.indexOf(h) > 0) showTab(h);
+})();
+</script>
+
+</body></html>
